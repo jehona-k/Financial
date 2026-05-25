@@ -230,6 +230,19 @@ def build_html(client, contact, proposal_no, studies_df, countries,
     tc_lines = [line.strip() for line in tc_text.split("\n") if line.strip()]
     tc_lis = "\n      ".join(f"<li>{line}</li>" for line in tc_lines)
 
+    # Additional notes block (only rendered if user entered anything)
+    if additional and additional.strip():
+        additional_lines = [line.strip() for line in additional.split("\n") if line.strip()]
+        additional_items = "\n      ".join(f"<li>{line}</li>" for line in additional_lines)
+        additional_html = f"""<div class="notes-block">
+    <div class="notes-title">Additional Notes</div>
+    <ul class="notes-list" style="grid-template-columns: 1fr;">
+      {additional_items}
+    </ul>
+  </div>"""
+    else:
+        additional_html = ""
+
     # Countries list for sub-header
     countries_label = ", ".join(countries) if countries else ""
     sub_header_text = f"Sample Panel Services \u00b7 {countries_label}"
@@ -1104,6 +1117,7 @@ if gen_clicked:
             quotas       = quotas,
             field_timing = field_timing,
             tc_text      = tc_text,
+            additional   = additional,
         )
 
         # Generate PDF via Edge headless
