@@ -1120,29 +1120,37 @@ if gen_clicked:
             additional   = additional,
         )
 
-        # Generate PDF via Edge headless
+        # Generate PDF — try Edge (local Windows) first, then WeasyPrint (Linux/cloud)
         html_bytes = html_str.encode("utf-8")
         pdf_bytes = None
-        try:
-            with tempfile.TemporaryDirectory() as tmp:
-                html_path = os.path.join(tmp, "offer.html")
-                pdf_path  = os.path.join(tmp, "offer.pdf")
-                with open(html_path, "w", encoding="utf-8") as f:
-                    f.write(html_str)
 
-                edge = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
-                subprocess.run(
-                    [edge, "--headless", "--disable-gpu",
-                     f"--print-to-pdf={pdf_path}",
-                     "--no-pdf-header-footer",
-                     html_path],
-                    capture_output=True, timeout=30,
-                )
-                if os.path.exists(pdf_path):
-                    with open(pdf_path, "rb") as pf:
-                        pdf_bytes = pf.read()
-        except Exception as exc:
-            st.warning(f"PDF generation failed: {exc}. You can still download HTML.")
+        edge_path = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+        if os.path.exists(edge_path):
+            try:
+                with tempfile.TemporaryDirectory() as tmp:
+                    html_path = os.path.join(tmp, "offer.html")
+                    pdf_path  = os.path.join(tmp, "offer.pdf")
+                    with open(html_path, "w", encoding="utf-8") as f:
+                        f.write(html_str)
+                    subprocess.run(
+                        [edge_path, "--headless", "--disable-gpu",
+                         f"--print-to-pdf={pdf_path}",
+                         "--no-pdf-header-footer",
+                         html_path],
+                        capture_output=True, timeout=30,
+                    )
+                    if os.path.exists(pdf_path):
+                        with open(pdf_path, "rb") as pf:
+                            pdf_bytes = pf.read()
+            except Exception as exc:
+                st.warning(f"Edge PDF generation failed: {exc}. Trying WeasyPrint…")
+
+        if pdf_bytes is None:
+            try:
+                from weasyprint import HTML
+                pdf_bytes = HTML(string=html_str).write_pdf()
+            except Exception as exc:
+                st.warning(f"PDF generation failed: {exc}. You can still download HTML.")
 
     cl = client.strip().replace(" ", "_")[:40]
 
