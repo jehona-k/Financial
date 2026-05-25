@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import pandas as pd
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -122,11 +123,22 @@ def _country_rows_html(studies_df, country):
 
 
 def build_html(client, contact, proposal_no, studies_df, countries,
-               quotas, field_timing, tc_text="", additional=""):
+               quotas, field_timing, tc_text="", additional="",
+               validity_amount=30, validity_unit="Days"):
 
     today = datetime.now()
     date_str = today.strftime("%d %B %Y")
-    valid_until = (today + timedelta(days=30)).strftime("%d %B %Y")
+
+    amount = max(1, int(validity_amount))
+    if validity_unit == "Days":
+        expiry = today + timedelta(days=amount)
+    elif validity_unit == "Months":
+        expiry = today + relativedelta(months=amount)
+    else:  # Years
+        expiry = today + relativedelta(years=amount)
+    valid_until = expiry.strftime("%d %B %Y")
+    unit_label = validity_unit[:-1] if amount == 1 else validity_unit
+    validity_label = f"{amount} {unit_label.lower()} from quotation date"
 
     logo_b64 = _logo_base64()
     logo_html = ""
@@ -734,7 +746,7 @@ def build_html(client, contact, proposal_no, studies_df, countries,
     </div>
     <div class="v-right">
       <strong>Offer valid until {valid_until}</strong>
-      30 days from quotation date
+      {validity_label}
     </div>
   </div>
 
@@ -806,6 +818,16 @@ with mc2:
     contact = st.selectbox("Contact Person *", options=[""] + EMPLOYEES)
 with mc3:
     proposal_no = st.text_input("Proposal No.", placeholder="e.g. 56145061")
+
+vc1, vc2, _ = st.columns([1, 1, 1])
+with vc1:
+    validity_amount = st.number_input(
+        "Offer Validity", min_value=1, max_value=999, value=30, step=1,
+    )
+with vc2:
+    validity_unit = st.selectbox(
+        "Validity Unit", options=["Days", "Months", "Years"], index=0,
+    )
 
 st.divider()
 
@@ -1118,6 +1140,8 @@ if gen_clicked:
             field_timing = field_timing,
             tc_text      = tc_text,
             additional   = additional,
+            validity_amount = int(validity_amount),
+            validity_unit   = validity_unit,
         )
 
         # Generate PDF — try Edge (local Windows) first, then WeasyPrint (Linux/cloud)
